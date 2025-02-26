@@ -1,86 +1,136 @@
-const board = document.getElementById("board");
+const board = Array(6).fill(null).map(() => Array(6).fill(null));
+const gameBoard = document.getElementById("game-board");
 const statusText = document.getElementById("status");
-let currentPlayer = "X";
-let cells = Array(16).fill("");
-let gameActive = true;
 
-// **গেম বোর্ড তৈরি করা**
+let playerTurn = true; // True = Player, False = AI
+const PLAYER_MARK = "X";
+const AI_MARK = "O";
+
+// Initialize the board
 function createBoard() {
-    board.innerHTML = "";
-    cells.forEach((_, index) => {
-        let cell = document.createElement("div");
-        cell.classList.add("cell");
-        cell.dataset.index = index;
-        cell.addEventListener("click", handleClick);
-        board.appendChild(cell);
-    });
-}
-
-// **খেলোয়াড়ের চাল**
-function handleClick(event) {
-    if (!gameActive) return;
-    let index = event.target.dataset.index;
-    
-    if (cells[index] === "") {
-        cells[index] = currentPlayer;
-        event.target.innerText = currentPlayer;
-        event.target.classList.add("taken");
-
-        if (checkWin(currentPlayer)) {
-            statusText.innerText = `${currentPlayer} Wins!`;
-            gameActive = false;
-            return;
+    gameBoard.innerHTML = "";
+    for (let row = 0; row < 6; row++) {
+        for (let col = 0; col < 6; col++) {
+            const cell = document.createElement("div");
+            cell.classList.add("cell");
+            cell.dataset.row = row;
+            cell.dataset.col = col;
+            cell.addEventListener("click", handlePlayerMove);
+            gameBoard.appendChild(cell);
         }
-
-        currentPlayer = currentPlayer === "X" ? "O" : "X";
-        statusText.innerText = `AI's Turn...`;
-
-        setTimeout(aiMove, 500); // **AI opponent move**
     }
 }
 
-// **AI opponent (random move)**
+// Player move
+function handlePlayerMove(event) {
+    if (!playerTurn) return;
+
+    const row = event.target.dataset.row;
+    const col = event.target.dataset.col;
+
+    if (board[row][col] === null) {
+        board[row][col] = PLAYER_MARK;
+        event.target.textContent = PLAYER_MARK;
+        event.target.classList.add("x", "taken");
+        playerTurn = false;
+
+        if (checkWinner(PLAYER_MARK)) {
+            statusText.textContent = "You Win!";
+            return;
+        }
+
+        setTimeout(aiMove, 500);
+    }
+}
+
+// AI move
 function aiMove() {
-    if (!gameActive) return;
+    let bestMove = getBestMove();
+    if (bestMove) {
+        let { row, col } = bestMove;
+        board[row][col] = AI_MARK;
 
-    let available = cells.map((val, idx) => (val === "" ? idx : null)).filter(val => val !== null);
-    
-    if (available.length > 0) {
-        let move = available[Math.floor(Math.random() * available.length)];
-        cells[move] = "O";
-        document.querySelector(`[data-index='${move}']`).innerText = "O";
-        document.querySelector(`[data-index='${move}']`).classList.add("taken");
+        let cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
+        cell.textContent = AI_MARK;
+        cell.classList.add("o", "taken");
 
-        if (checkWin("O")) {
-            statusText.innerText = `O Wins!`;
-            gameActive = false;
+        if (checkWinner(AI_MARK)) {
+            statusText.textContent = "AI Wins!";
             return;
         }
-
-        currentPlayer = "X";
-        statusText.innerText = "Your Turn (X)";
     }
+    playerTurn = true;
 }
 
-// **জয়ের চেক (4×4)**
-function checkWin(player) {
-    const winPatterns = [
-        [0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11], [12, 13, 14, 15], // **Rows**
-        [0, 4, 8, 12], [1, 5, 9, 13], [2, 6, 10, 14], [3, 7, 11, 15], // **Columns**
-        [0, 5, 10, 15], [3, 6, 9, 12] // **Diagonals**
-    ];
+// AI Logic (random mistakes)
+function getBestMove() {
+    let emptyCells = [];
+    for (let row = 0; row < 6; row++) {
+        for (let col = 0; col < 6; col++) {
+            if (board[row][col] === null) {
+                emptyCells.push({ row, col });
+            }
+        }
+    }
 
-    return winPatterns.some(pattern => pattern.every(index => cells[index] === player));
+    // AI plays optimally but makes mistakes randomly
+    if (Math.random() < 0.2) { // 20% mistake chance
+        return emptyCells[Math.floor(Math.random() * emptyCells.length)];
+    }
+
+    // Otherwise, find the best move
+    return findWinningMove(AI_MARK) || findWinningMove(PLAYER_MARK) || emptyCells[0];
 }
 
-// **গেম রিসেট**
-function resetGame() {
-    cells = Array(16).fill("");
-    gameActive = true;
-    currentPlayer = "X";
-    statusText.innerText = "Your Turn (X)";
-    createBoard();
+// Find winning move
+function findWinningMove(mark) {
+    for (let row = 0; row < 6; row++) {
+        for (let col = 0; col < 6; col++) {
+            if (board[row][col] === null) {
+                board[row][col] = mark;
+                if (checkWinner(mark)) {
+                    board[row][col] = null;
+                    return { row, col };
+                }
+                board[row][col] = null;
+            }
+        }
+    }
+    return null;
 }
 
-// **গেম চালু করুন**
+// Check win condition (4 in a row)
+function checkWinner(mark) {
+    // Horizontal, Vertical, Diagonal checks
+    for (let row = 0; row < 6; row++) {
+        for (let col = 0; col < 6; col++) {
+            if (
+                checkLine(row, col, 0, 1, mark) ||  // Horizontal
+                checkLine(row, col, 1, 0, mark) ||  // Vertical
+                checkLine(row, col, 1, 1, mark) ||  // Diagonal Right
+                checkLine(row, col, 1, -1, mark)    // Diagonal Left
+            ) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+// Check 4-in-a-row in a given direction
+function checkLine(row, col, rowDir, colDir, mark) {
+    let count = 0;
+    for (let i = 0; i < 4; i++) {
+        let r = row + i * rowDir;
+        let c = col + i * colDir;
+        if (r >= 0 && r < 6 && c >= 0 && c < 6 && board[r][c] === mark) {
+            count++;
+        } else {
+            break;
+        }
+    }
+    return count === 4;
+}
+
+// Initialize the game
 createBoard();
