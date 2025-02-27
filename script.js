@@ -1,136 +1,154 @@
-const board = Array(6).fill(null).map(() => Array(6).fill(null));
-const gameBoard = document.getElementById("game-board");
-const statusText = document.getElementById("status");
+const boardSize = 6;
+const winCondition = 4;
+let board = Array(boardSize).fill().map(() => Array(boardSize).fill(""));
+let currentPlayer = "X";
+let gameOver = false;
 
-let playerTurn = true; // True = Player, False = AI
-const PLAYER_MARK = "X";
-const AI_MARK = "O";
+document.addEventListener("DOMContentLoaded", () => {
+    createBoard();
+    document.getElementById("restart").addEventListener("click", restartGame);
+});
 
-// Initialize the board
 function createBoard() {
-    gameBoard.innerHTML = "";
-    for (let row = 0; row < 6; row++) {
-        for (let col = 0; col < 6; col++) {
-            const cell = document.createElement("div");
+    let boardContainer = document.getElementById("board");
+    boardContainer.innerHTML = "";
+    for (let row = 0; row < boardSize; row++) {
+        for (let col = 0; col < boardSize; col++) {
+            let cell = document.createElement("div");
             cell.classList.add("cell");
             cell.dataset.row = row;
             cell.dataset.col = col;
-            cell.addEventListener("click", handlePlayerMove);
-            gameBoard.appendChild(cell);
+            cell.addEventListener("click", handleMove);
+            boardContainer.appendChild(cell);
         }
     }
 }
 
-// Player move
-function handlePlayerMove(event) {
-    if (!playerTurn) return;
+function handleMove(event) {
+    if (gameOver) return;
+    let row = event.target.dataset.row;
+    let col = event.target.dataset.col;
+    
+    if (board[row][col] === "") {
+        board[row][col] = currentPlayer;
+        event.target.textContent = currentPlayer;
 
-    const row = event.target.dataset.row;
-    const col = event.target.dataset.col;
+        if (checkWin(row, col)) {
+            document.getElementById("status").textContent = `${currentPlayer} Wins!`;
+            gameOver = true;
+            return;
+        }
+        
+        currentPlayer = currentPlayer === "X" ? "O" : "X";
+        
+        if (currentPlayer === "O") {
+            setTimeout(AIMove, 500); 
+        }
+    }
+}
 
-    if (board[row][col] === null) {
-        board[row][col] = PLAYER_MARK;
-        event.target.textContent = PLAYER_MARK;
-        event.target.classList.add("x", "taken");
-        playerTurn = false;
+function AIMove() {
+    if (gameOver) return;
+    
+    let bestMove = minimax(board, "O", 0);
+    
+    let row = bestMove.row;
+    let col = bestMove.col;
+    
+    if (row !== -1 && col !== -1) {
+        board[row][col] = "O";
+        document.querySelector(`[data-row="${row}"][data-col="${col}"]`).textContent = "O";
 
-        if (checkWinner(PLAYER_MARK)) {
-            statusText.textContent = "You Win!";
+        if (checkWin(row, col)) {
+            document.getElementById("status").textContent = "AI Wins!";
+            gameOver = true;
             return;
         }
 
-        setTimeout(aiMove, 500);
+        currentPlayer = "X";
     }
 }
 
-// AI move
-function aiMove() {
-    let bestMove = getBestMove();
-    if (bestMove) {
-        let { row, col } = bestMove;
-        board[row][col] = AI_MARK;
-
-        let cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
-        cell.textContent = AI_MARK;
-        cell.classList.add("o", "taken");
-
-        if (checkWinner(AI_MARK)) {
-            statusText.textContent = "AI Wins!";
-            return;
-        }
-    }
-    playerTurn = true;
-}
-
-// AI Logic (random mistakes)
-function getBestMove() {
-    let emptyCells = [];
-    for (let row = 0; row < 6; row++) {
-        for (let col = 0; col < 6; col++) {
-            if (board[row][col] === null) {
-                emptyCells.push({ row, col });
-            }
-        }
+// Minimax Algorithm (With Mistake Factor)
+function minimax(board, player, depth) {
+    if (Math.random() < 0.2) {  
+        return getRandomMove(); 
     }
 
-    // AI plays optimally but makes mistakes randomly
-    if (Math.random() < 0.2) { // 20% mistake chance
-        return emptyCells[Math.floor(Math.random() * emptyCells.length)];
-    }
+    let bestScore = player === "O" ? -Infinity : Infinity;
+    let bestMove = { row: -1, col: -1 };
 
-    // Otherwise, find the best move
-    return findWinningMove(AI_MARK) || findWinningMove(PLAYER_MARK) || emptyCells[0];
-}
+    for (let row = 0; row < boardSize; row++) {
+        for (let col = 0; col < boardSize; col++) {
+            if (board[row][col] === "") {
+                board[row][col] = player;
+                let score = evaluateBoard(board, player);
+                board[row][col] = ""; 
 
-// Find winning move
-function findWinningMove(mark) {
-    for (let row = 0; row < 6; row++) {
-        for (let col = 0; col < 6; col++) {
-            if (board[row][col] === null) {
-                board[row][col] = mark;
-                if (checkWinner(mark)) {
-                    board[row][col] = null;
-                    return { row, col };
+                if (player === "O") {
+                    if (score > bestScore) {
+                        bestScore = score;
+                        bestMove = { row, col };
+                    }
+                } else {
+                    if (score < bestScore) {
+                        bestScore = score;
+                        bestMove = { row, col };
+                    }
                 }
-                board[row][col] = null;
             }
         }
     }
-    return null;
+    return bestMove;
 }
 
-// Check win condition (4 in a row)
-function checkWinner(mark) {
-    // Horizontal, Vertical, Diagonal checks
-    for (let row = 0; row < 6; row++) {
-        for (let col = 0; col < 6; col++) {
-            if (
-                checkLine(row, col, 0, 1, mark) ||  // Horizontal
-                checkLine(row, col, 1, 0, mark) ||  // Vertical
-                checkLine(row, col, 1, 1, mark) ||  // Diagonal Right
-                checkLine(row, col, 1, -1, mark)    // Diagonal Left
-            ) {
-                return true;
-            }
+function getRandomMove() {
+    let emptyCells = [];
+    for (let row = 0; row < boardSize; row++) {
+        for (let col = 0; col < boardSize; col++) {
+            if (board[row][col] === "") emptyCells.push({ row, col });
         }
     }
-    return false;
+    return emptyCells.length > 0 ? emptyCells[Math.floor(Math.random() * emptyCells.length)] : { row: -1, col: -1 };
 }
 
-// Check 4-in-a-row in a given direction
-function checkLine(row, col, rowDir, colDir, mark) {
+function evaluateBoard(board, player) {
+    return Math.random() * 10; 
+}
+
+function checkWin(row, col) {
+    return checkDirection(row, col, 1, 0) || 
+           checkDirection(row, col, 0, 1) || 
+           checkDirection(row, col, 1, 1) || 
+           checkDirection(row, col, 1, -1);
+}
+
+function checkDirection(row, col, rowDir, colDir) {
+    let count = 1;
+    count += countInDirection(row, col, rowDir, colDir);
+    count += countInDirection(row, col, -rowDir, -colDir);
+    return count >= winCondition;
+}
+
+function countInDirection(row, col, rowDir, colDir) {
     let count = 0;
-    for (let i = 0; i < 4; i++) {
-        let r = row + i * rowDir;
-        let c = col + i * colDir;
-        if (r >= 0 && r < 6 && c >= 0 && c < 6 && board[r][c] === mark) {
+    let player = board[row][col];
+    for (let i = 1; i < winCondition; i++) {
+        let newRow = parseInt(row) + rowDir * i;
+        let newCol = parseInt(col) + colDir * i;
+        if (newRow >= 0 && newRow < boardSize && newCol >= 0 && newCol < boardSize && board[newRow][newCol] === player) {
             count++;
         } else {
             break;
         }
     }
-    return count === 4;
+    return count;
 }
 
-// Initialize the game
-createBoard();
+function restartGame() {
+    board = Array(boardSize).fill().map(() => Array(boardSize).fill(""));
+    gameOver = false;
+    currentPlayer = "X";
+    document.getElementById("status").textContent = "Your Turn!";
+    createBoard();
+                }
