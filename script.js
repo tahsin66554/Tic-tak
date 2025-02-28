@@ -38,12 +38,36 @@ socket.on("playerData", (data) => {
 function handleMove(event) {
     let row = event.target.dataset.row;
     let col = event.target.dataset.col;
-    socket.emit("makeMove", { room, row, col, symbol: playerSymbol });
+    if (event.target.textContent === "") {
+        socket.emit("makeMove", { room, row, col, symbol: playerSymbol });
+    }
 }
 
 // বোর্ড আপডেট
-socket.on("updateBoard", ({ row, col, symbol }) => {
-    document.querySelector(`[data-row='${row}'][data-col='${col}']`).textContent = symbol;
+socket.on("updateBoard", (board) => {
+    const boardDiv = document.getElementById("board");
+    boardDiv.innerHTML = "";
+    board.forEach((row, r) => {
+        row.forEach((cell, c) => {
+            let cellDiv = document.createElement("div");
+            cellDiv.classList.add("cell");
+            cellDiv.dataset.row = r;
+            cellDiv.dataset.col = c;
+            cellDiv.textContent = cell || '';
+            cellDiv.addEventListener("click", handleMove);
+            boardDiv.appendChild(cellDiv);
+        });
+    });
+});
+
+// নতুন প্লেয়ার যুক্ত
+socket.on("newPlayer", (playerId) => {
+    console.log(`নতুন প্লেয়ার যুক্ত হয়েছে: ${playerId}`);
+});
+
+// প্লেয়ার গেম ছেড়েছে
+socket.on("playerLeft", (playerId) => {
+    console.log(`প্লেয়ার গেম ছেড়েছে: ${playerId}`);
 });
 
 // গেম শেষ
