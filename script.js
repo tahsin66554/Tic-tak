@@ -2,16 +2,56 @@ const socket = io();
 let playerSymbol = "";
 let room = "";
 
-// গেমে নতুন রুম তৈরি করুন
-function createRoom() {
-    room = document.getElementById("roomInput").value;
-    const password = document.getElementById("passwordInput").value;
-    if (room && password) {
-        socket.emit("createRoom", { room, password });
-    }
-}
+document.getElementById("createRoomBtn").addEventListener("click", () => {
+    const roomName = document.getElementById("roomInput").value;
+    const password = document.getElementById("roomPassword").value;
+    socket.emit("createRoom", { room: roomName, password: password });
+});
 
-// বোর্ড তৈরি
+document.getElementById("joinRoomBtn").addEventListener("click", () => {
+    const roomName = document.getElementById("roomInput").value;
+    const password = document.getElementById("roomPassword").value;
+    socket.emit("joinRoom", { room: roomName, password: password });
+});
+
+socket.on("updateActiveUsers", (count) => {
+    document.getElementById("activeUsers").innerText = `Active Users: ${count}`;
+});
+
+socket.on("roomList", (rooms) => {
+    const roomList = document.getElementById("roomList");
+    roomList.innerHTML = "";
+    rooms.forEach((room) => {
+        let listItem = document.createElement("li");
+        listItem.innerText = room;
+        roomList.appendChild(listItem);
+    });
+});
+
+socket.on("roomError", (message) => {
+    alert(message);
+});
+
+socket.on("playerData", (data) => {
+    playerSymbol = data.symbol;
+    room = data.room;
+    document.getElementById("status").innerText = `You are playing as ${playerSymbol}`;
+    createBoard();
+});
+
+socket.on("gameStart", (data) => {
+    document.getElementById("status").innerText = data.message;
+});
+
+socket.on("updateBoard", ({ row, col, symbol }) => {
+    document.querySelector(`#board .cell[data-row='${row}'][data-col='${col}']`).innerText = symbol;
+});
+
+socket.on("gameOver", ({ winner }) => {
+    alert(`${winner} wins!`);
+    createBoard();
+});
+
 function createBoard() {
     let boardDiv = document.getElementById("board");
     boardDiv.innerHTML = "";
@@ -27,78 +67,8 @@ function createBoard() {
     }
 }
 
-// সক্রিয় প্লেয়ার আপডেট
-socket.on("updatePlayers", (players) => {
-    let playerList = document.getElementById("activePlayers");
-    document.getElementById("playerCount").innerText = `Active Players: ${players.length}`;
-    playerList.innerHTML = players.map(player => `<li>${player.id} - Room: ${player.room || 'Waiting'}</li>`).join('');
-});
-
-// খেলোয়াড় তথ্য সেট
-socket.on("playerData", (data) => {
-    playerSymbol = data.symbol;
-    room = data.room;
-    document.getElementById("status").innerText = `You are playing as ${playerSymbol}`;
-    createBoard();
-});
-
-// রুমে যোগ দিন
-function joinRoom() {
-    room = document.getElementById("roomInput").value;
-    const password = document.getElementById("passwordInput").value;
-    if (room && password) {
-        socket.emit("joinRoom", { room, password });
-    }
-}
-
-// চাল দেওয়া
 function handleMove(event) {
     let row = event.target.dataset.row;
     let col = event.target.dataset.col;
-    if (event.target.textContent === "") {
-        socket.emit("makeMove", { room, row, col, symbol: playerSymbol });
-    }
+    socket.emit("makeMove", { room, row, col, symbol: playerSymbol });
 }
-
-// বোর্ড আপডেট
-socket.on("updateBoard", (board) => {
-    const boardDiv = document.getElementById("board");
-    boardDiv.innerHTML = "";
-    board.forEach((row, r) => {
-        row.forEach((cell, c) => {
-            let cellDiv = document.createElement("div");
-            cellDiv.classList.add("cell");
-            cellDiv.dataset.row = r;
-            cellDiv.dataset.col = c;
-            cellDiv.textContent = cell || '';
-            cellDiv.addEventListener("click", handleMove);
-            boardDiv.appendChild(cellDiv);
-        });
-    });
-});
-
-// গেম শুরু
-socket.on("gameStart", () => {
-    alert("Game is starting in your room!");
-});
-
-// নতুন প্লেয়ার যুক্ত
-socket.on("newPlayer", (playerId) => {
-    console.log(`নতুন প্লেয়ার যুক্ত হয়েছে: ${playerId}`);
-});
-
-// প্লেয়ার গেম ছেড়েছে
-socket.on("playerLeft", (playerId) => {
-    console.log(`প্লেয়ার গেম ছেড়েছে: ${playerId}`);
-});
-
-// গেম শেষ
-socket.on("gameOver", ({ winner }) => {
-    alert(`${winner} wins!`);
-    createBoard();
-});
-
-// রুম পাসওয়ার্ড ভুল হলে ত্রুটি দেখানো
-socket.on("joinError", (message) => {
-    alert(message);
-});
