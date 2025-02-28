@@ -1,3 +1,14 @@
+socket.on("joinGame", (room) => {
+    if (!rooms[room]) {
+        socket.emit("errorMessage", "রুমটি বিদ্যমান নয়।");
+        return;
+    }
+    if (rooms[room].players.length >= 2) {
+        socket.emit("errorMessage", "রুমটি পূর্ণ।");
+        return;
+    }
+    // রুমে যোগদানের কোড...
+});
 const express = require("express");
 const http = require("http");
 const socketIo = require("socket.io");
