@@ -26,6 +26,12 @@ function createBoard() {
     }
 }
 
+// সক্রিয় প্লেয়ার আপডেট
+socket.on("updatePlayers", (players) => {
+    let playerList = document.getElementById("activePlayers");
+    playerList.innerHTML = players.map(player => `<li>${player.id} - Room: ${player.room || 'Waiting'}</li>`).join('');
+});
+
 // খেলোয়াড় তথ্য সেট
 socket.on("playerData", (data) => {
     playerSymbol = data.symbol;
@@ -58,6 +64,11 @@ socket.on("updateBoard", (board) => {
             boardDiv.appendChild(cellDiv);
         });
     });
+});
+
+// গেম শুরু
+socket.on("gameStart", () => {
+    alert("Game is starting in your room!");
 });
 
 // নতুন প্লেয়ার যুক্ত
