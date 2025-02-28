@@ -2,11 +2,12 @@ const socket = io();
 let playerSymbol = "";
 let room = "";
 
-// গেমে যোগ দিন
-function joinGame() {
+// গেমে নতুন রুম তৈরি করুন
+function createRoom() {
     room = document.getElementById("roomInput").value;
-    if (room) {
-        socket.emit("joinGame", room);
+    const password = document.getElementById("passwordInput").value;
+    if (room && password) {
+        socket.emit("createRoom", { room, password });
     }
 }
 
@@ -29,6 +30,7 @@ function createBoard() {
 // সক্রিয় প্লেয়ার আপডেট
 socket.on("updatePlayers", (players) => {
     let playerList = document.getElementById("activePlayers");
+    document.getElementById("playerCount").innerText = `Active Players: ${players.length}`;
     playerList.innerHTML = players.map(player => `<li>${player.id} - Room: ${player.room || 'Waiting'}</li>`).join('');
 });
 
@@ -39,6 +41,15 @@ socket.on("playerData", (data) => {
     document.getElementById("status").innerText = `You are playing as ${playerSymbol}`;
     createBoard();
 });
+
+// রুমে যোগ দিন
+function joinRoom() {
+    room = document.getElementById("roomInput").value;
+    const password = document.getElementById("passwordInput").value;
+    if (room && password) {
+        socket.emit("joinRoom", { room, password });
+    }
+}
 
 // চাল দেওয়া
 function handleMove(event) {
@@ -85,4 +96,9 @@ socket.on("playerLeft", (playerId) => {
 socket.on("gameOver", ({ winner }) => {
     alert(`${winner} wins!`);
     createBoard();
+});
+
+// রুম পাসওয়ার্ড ভুল হলে ত্রুটি দেখানো
+socket.on("joinError", (message) => {
+    alert(message);
 });
